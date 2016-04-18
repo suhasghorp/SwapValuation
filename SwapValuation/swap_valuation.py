@@ -29,7 +29,7 @@ for i in range(1, len(dates)):
     yf.append(t)
 
 
-tempDiscFactors = [1, 0.998724, 0.994915, 0.987925, 0.979152, 0.969457, 0.958690, 0.946531, 0.933045]
+tempDiscFactors = [1., 0.998724, 0.994915, 0.987925, 0.979152, 0.969457, 0.958690, 0.946531, 0.933045]
 impFwdRates = []
 for i in range(1, len(tempDiscFactors)):
     impFwdRates.append((tempDiscFactors[i-1]/tempDiscFactors[i] - 1.) * (1./yf[i]))
