@@ -1,5 +1,7 @@
 from QuantLib import *
+from math import log, exp
 import pandas as pd
+from scipy import interpolate
 
 
 calendar = JointCalendar(UnitedStates(UnitedStates.Settlement), UnitedKingdom(UnitedKingdom.Exchange),JoinHolidays)
@@ -70,6 +72,37 @@ liborDiscFactors = [1.0,
                     0.345407,
                     0.282258]
 
+liborZeroRates = [  0.0, 0.0038097,
+                    0.0038088,
+                    0.0038088,
+                    0.0039412,
+                    0.0062247,
+                    0.0063501,
+                    0.0068152,
+                    0.007195,
+                    0.0074916,
+                    0.0077988,
+                    0.0080705,
+                    0.0083555,
+                    0.0086404,
+                    0.0094206,
+                    0.0104417,
+                    0.0114788,
+                    0.0125598,
+                    0.013539,
+                    0.0144499,
+                    0.0152657,
+                    0.0159983,
+                    0.0173084,
+                    0.0187003,
+                    0.020124,
+                    0.020792,
+                    0.0211892,
+                    0.0212766,
+                    0.021006,
+                    0.0208285
+                    ]
+
 oisCurveDates = [today, Date(19, 4, 2016), Date(19, 5, 2016), Date(20, 6, 2016), Date(19, 7, 2016), Date(19, 8, 2016), Date(19, 9, 2016),
                  Date(19, 10, 2016), Date(19, 1, 2017), Date(19, 4, 2017),
                  Date(19, 4, 2018), Date(22, 4, 2019), Date(20, 4, 2020), Date(19, 4, 2021),
@@ -80,6 +113,9 @@ oisDiscFactors = [1.0, 0.99995805,0.99963983,0.9992989,0.99899593,0.99855369,0.9
                     0.99650212,0.99511013,0.98871444,0.97989867,0.96970703,0.95767071,0.92849575,
                     0.8785243,0.84585957,0.791129,0.71144439,0.64560551,0.58139812,0.48863201,0.41385967]
 
+liborInterpolator = interpolate.interp1d([float(x.serialNumber()) for x in liborCurveDates], [log(x) for x in liborDiscFactors], kind='cubic')
+oisInterpolator = interpolate.interp1d([float(x.serialNumber()) for x in oisCurveDates], [log(x) for x in oisDiscFactors], kind='cubic')
+zeroInterpolator = interpolate.interp1d([float(x.serialNumber()) for x in liborCurveDates], liborZeroRates, kind='cubic')
 
 liborCurve = YieldTermStructureHandle(DiscountCurve(liborCurveDates, liborDiscFactors, Actual360(), calendar ))
 oisCurve = YieldTermStructureHandle(DiscountCurve(oisCurveDates, oisDiscFactors, Actual360(), calendar ))
@@ -115,19 +151,69 @@ swap = VanillaSwap(VanillaSwap.Receiver, notional, fixedSchedule,
 swapEngine = DiscountingSwapEngine(oisCurve)
 swap.setPricingEngine(swapEngine)
 
+liborFixings = []
+liborFixings.append((Date(1, 5, 2014).serialNumber(), 0.0022285))
+liborFixings.append((Date(4, 8, 2014).serialNumber(), 0.0023710))
+liborFixings.append((Date(4, 11, 2014).serialNumber(), 0.0023185))
+liborFixings.append((Date(4, 2, 2015).serialNumber(), 0.0025510))
+liborFixings.append((Date(1, 5, 2015).serialNumber(), 0.0027975))
+liborFixings.append((Date(4, 8, 2015).serialNumber(), 0.0030110))
+liborFixings.append((Date(4, 11, 2015).serialNumber(), 0.0033660))
+liborFixings.append((Date(4, 2, 2016).serialNumber(), 0.0062020))
 
-pmtDates = [settlementDate]
+
+pmtDates = []
 pmt = []
 for i, cf in enumerate(swap.leg(1)):
     print '%-10s %2d  %-18s   %10.2f' % ('Floating', i+1, cf.date(), cf.amount())
-    pmtDates.append(cf.date())
+    #pmtDates.append(cf.date())
     pmt.append(cf.amount())
+
+for d in floatSchedule:
+    pmtDates.append(d)
 pmtBegin = pmtDates[0:len(pmtDates)-1]
 pmtEnd = pmtDates[1:len(pmtDates)]
 
-df = pd.DataFrame(index=range(len(pmtDates)-1))
-df['Pmt Begin'] = pmtBegin
-df['Pmt End'] = pmtEnd;
+def getFixing(x):
+    fixingDate = calendar.advance(x, Period(-2, Days),ModifiedFollowing).serialNumber()
+    index = [i for i, v in enumerate(liborFixings) if v[0] == fixingDate]
+    return liborFixings[index[0]][1]
+
+def getForward(x):
+    df = dfFloating[dfFloating['Pmt End'].isin([x])]
+    discount_before = df.iloc[0]['LiborDiscount']
+    df = dfFloating[dfFloating['Pmt Begin'].isin([x])]
+    discount_now = df.iloc[0]['LiborDiscount']
+    yf = df.iloc[0]['Period']
+    forward = ((discount_before/discount_now) - 1) * (1.0/yf)
+    return forward
+
+def getOISAdjustedForward(x):
+    df = dfFloating[dfFloating['Pmt End'].isin([x])]
+    libor_before = df.iloc[0]['ZeroRates']
+    df = dfFloating[dfFloating['Pmt Begin'] < [x]]
+    sum = 0
+    for index, row in df.iterrows():
+        sum += df['OISDiscount'] * df['Period']
+    one = df['ZeroRates'] * sum
+
+def print_full(x):
+    pd.set_option('display.max_rows', len(x))
+    print(x)
+    pd.reset_option('display.max_rows')
+
+dfFloating = pd.DataFrame(index=range(len(pmtDates)-1))
+dfFloating['Pmt Begin'] = pmtBegin
+dfFloating['Pmt End'] = pmtEnd
+dfFloating['Period'] = [floatingLegDayCount.yearFraction(x,y) for x, y in zip(pmtBegin, pmtEnd)]
+dfFloating['ZeroRates'] = [liborInterpolator(x.serialNumber()) if x >= today else 0 for x in pmtEnd ]
+dfFloating['LiborDiscount'] = [exp(liborInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd ]
+dfFloating['OISDiscount'] = [exp(oisInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd ]
+dfFloating['Forward'] = [getFixing(x) if x < today else getForward(x) for x in pmtBegin]
+dfFloating['OISForward'] = [getFixing(x) if x < today else getOISAdjustedForward(x) for x in pmtBegin]
+dfFloating['Proj Pmt'] = notional * dfFloating['Forward'] * dfFloating['Period']
+dfFloating['PV Disc'] = dfFloating['Proj Pmt'] * dfFloating['LiborDiscount']
+MVFloating = dfFloating['PV Disc'].sum(axis=0)
 
 for i, cf in enumerate(swap.leg(0)):
     print '%-10s %2d  %-18s   %10.2f' % ('Fixed', i+1, cf.date(), cf.amount())
