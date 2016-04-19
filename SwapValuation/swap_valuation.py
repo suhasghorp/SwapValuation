@@ -1,5 +1,5 @@
 from QuantLib import *
-from pandas import *
+import pandas as pd
 
 
 calendar = JointCalendar(UnitedStates(UnitedStates.Settlement), UnitedKingdom(UnitedKingdom.Exchange),JoinHolidays)
@@ -9,80 +9,76 @@ today = Date(15, April, 2016)
 Settings.instance().evaluationDate = today
 
 liborCurveDates = [today,
-            Date(18,4,2016),
-            Date(19,4,2016),
-            Date(26,4,2016),
-            Date(19,7,2016),
-            Date(15,9,2016),
-            Date(21,12,2016),
-            Date(21,3,2017),
-            Date(19,4,2017),
-            Date(15,6,2017),
-            Date(21,9,2017),
-            Date(20,12,2017),
-            Date(20,3,2018),
-            Date(19,4,2018),
-            Date(21,6,2018),
-            Date(19,4,2019),
-            Date(20,4,2020),
-            Date(19,4,2021),
-            Date(19,4,2022),
-            Date(19,4,2023),
-            Date(19,4,2024),
-            Date(21,4,2025),
-            Date(20,4,2026),
-            Date(19,4,2028),
-            Date(21,4,2031),
-            Date(21,4,2036),
-            Date(19,4,2041),
-            Date(19,4,2046),
-            Date(19,4,2056),
-            Date(19,4,2066),
-            Date(20,4,2076)
-            ]
+                   Date(16, 4, 2016),
+                   Date(18, 4, 2016),
+                   Date(19, 4, 2016),
+                   Date(26, 4, 2016),
+                   Date(19, 7, 2016),
+                   Date(15, 9, 2016),
+                   Date(21, 12, 2016),
+                   Date(21, 3, 2017),
+                   Date(15, 6, 2017),
+                   Date(21, 9, 2017),
+                   Date(20, 12, 2017),
+                   Date(20, 3, 2018),
+                   Date(21, 6, 2018),
+                   Date(23, 4, 2019),
+                   Date(21, 4, 2020),
+                   Date(19, 4, 2021),
+                   Date(19, 4, 2022),
+                   Date(19, 4, 2023),
+                   Date(19, 4, 2024),
+                   Date(22, 4, 2025),
+                   Date(20, 4, 2026),
+                   Date(19, 4, 2028),
+                   Date(21, 4, 2031),
+                   Date(22, 4, 2036),
+                   Date(23, 4, 2041),
+                   Date(19, 4, 2046),
+                   Date(19, 4, 2056),
+                   Date(19, 4, 2066),
+                   Date(20, 4, 2076) ]
 
 liborDiscFactors = [1.0,
-                    0.99996828,
-                    0.9999577,
-                    0.99987964,
-                    0.99835999,
-                    0.9972,
-                    0.9952,
-                    0.9932,
-                    0.99246553,
-                    0.9911,
-                    0.9886,
-                    0.9863,
-                    0.9838,
-                    0.98289194,
-                    0.9811,
-                    0.97168339,
-                    0.95841622,
-                    0.94335344,
-                    0.9263031,
-                    0.90821659,
-                    0.8891654,
-                    0.86961426,
-                    0.84990119,
-                    0.8096009,
-                    0.75166592,
-                    0.66384082,
-                    0.58916339,
-                    0.52361497,
-                    0.42087197,
-                    0.34432198,
-                    0.28166425
-                    ]
+                    0.999989,
+                    0.999968,
+                    0.999958,
+                    0.99988,
+                    0.99836,
+                    0.997307,
+                    0.995282,
+                    0.993234,
+                    0.991182,
+                    0.988724,
+                    0.986343,
+                    0.98381,
+                    0.981073,
+                    0.971582,
+                    0.958396,
+                    0.943398,
+                    0.92639,
+                    0.90836,
+                    0.889377,
+                    0.869866,
+                    0.850278,
+                    0.810206,
+                    0.752613,
+                    0.665168,
+                    0.590692,
+                    0.525476,
+                    0.42256,
+                    0.345407,
+                    0.282258]
 
-oisCurveDates = [today, Date(19, 5, 2016), Date(20, 6, 2016), Date(19, 7, 2016), Date(19, 8, 2016), Date(19, 9, 2016),
-                 Date(19, 10, 2016), Date(19, 1, 2017), Date(19, 4, 2017), Date(19, 11, 2017),
-                 Date(19, 4, 2018), Date(19, 4, 2019), Date(20, 4, 2020), Date(19, 4, 2021),
+oisCurveDates = [today, Date(19, 4, 2016), Date(19, 5, 2016), Date(20, 6, 2016), Date(19, 7, 2016), Date(19, 8, 2016), Date(19, 9, 2016),
+                 Date(19, 10, 2016), Date(19, 1, 2017), Date(19, 4, 2017),
+                 Date(19, 4, 2018), Date(22, 4, 2019), Date(20, 4, 2020), Date(19, 4, 2021),
                  Date(19, 4, 2023), Date(20, 4, 2026), Date(19, 4, 2028), Date(21, 4, 2031),
-                 Date(21, 4, 2036), Date(19, 4, 2041), Date(19, 4, 2046), Date(19, 4, 2056), Date(19, 4, 2066)]
+                 Date(21, 4, 2036), Date(22, 4, 2041), Date(19, 4, 2046), Date(19, 4, 2056), Date(19, 4, 2066)]
 
-oisDiscFactors = [1.0, 0.99965897, 0.99932719, 0.99900473, 0.99864067, 0.99826878, 0.99787826, 0.99660892, 0.99525069, 0.99216604,
-                  0.98876614, 0.98055096, 0.97049654, 0.95864420, 0.92981876, 0.88031097, 0.84570871, 0.79365875, 0.71413756,
-                  0.64512344, 0.58506043, 0.48754892, 0.41305758]
+oisDiscFactors = [1.0, 0.99995805,0.99963983,0.9992989,0.99899593,0.99855369,0.99820806,0.99777454,
+                    0.99650212,0.99511013,0.98871444,0.97989867,0.96970703,0.95767071,0.92849575,
+                    0.8785243,0.84585957,0.791129,0.71144439,0.64560551,0.58139812,0.48863201,0.41385967]
 
 
 liborCurve = YieldTermStructureHandle(DiscountCurve(liborCurveDates, liborDiscFactors, Actual360(), calendar ))
@@ -119,16 +115,19 @@ swap = VanillaSwap(VanillaSwap.Receiver, notional, fixedSchedule,
 swapEngine = DiscountingSwapEngine(oisCurve)
 swap.setPricingEngine(swapEngine)
 
-df = DataFrame()
 
 pmtDates = [settlementDate]
 pmt = []
 for i, cf in enumerate(swap.leg(1)):
     print '%-10s %2d  %-18s   %10.2f' % ('Floating', i+1, cf.date(), cf.amount())
-    pmtDates.append(cf.date)
-    pmt.append(cf.amount)
+    pmtDates.append(cf.date())
+    pmt.append(cf.amount())
+pmtBegin = pmtDates[0:len(pmtDates)-1]
+pmtEnd = pmtDates[1:len(pmtDates)]
 
-
+df = pd.DataFrame(index=range(len(pmtDates)-1))
+df['Pmt Begin'] = pmtBegin
+df['Pmt End'] = pmtEnd;
 
 for i, cf in enumerate(swap.leg(0)):
     print '%-10s %2d  %-18s   %10.2f' % ('Fixed', i+1, cf.date(), cf.amount())
