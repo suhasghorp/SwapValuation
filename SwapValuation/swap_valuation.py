@@ -2,6 +2,7 @@ from QuantLib import *
 from math import log, exp
 import pandas as pd
 from scipy import interpolate
+from datetime import date
 
 
 calendar = JointCalendar(UnitedStates(UnitedStates.Settlement), UnitedKingdom(UnitedKingdom.Exchange),JoinHolidays)
@@ -162,31 +163,13 @@ liborFixings.append((Date(4, 11, 2015).serialNumber(), 0.0033660))
 liborFixings.append((Date(4, 2, 2016).serialNumber(), 0.0062020))
 
 
-pmtDates = []
+
 pmt = []
 for i, cf in enumerate(swap.leg(1)):
     print '%-10s %2d  %-18s   %10.2f' % ('Floating', i+1, cf.date(), cf.amount())
     #pmtDates.append(cf.date())
     pmt.append(cf.amount())
 
-for d in floatSchedule:
-    pmtDates.append(d)
-pmtBegin = pmtDates[0:len(pmtDates)-1]
-pmtEnd = pmtDates[1:len(pmtDates)]
-
-def getFixing(x):
-    fixingDate = calendar.advance(x, Period(-2, Days),ModifiedFollowing).serialNumber()
-    index = [i for i, v in enumerate(liborFixings) if v[0] == fixingDate]
-    return liborFixings[index[0]][1]
-
-def getForward(x):
-    df = dfFloating[dfFloating['Pmt End'].isin([x])]
-    discount_before = df.iloc[0]['LiborDiscount']
-    df = dfFloating[dfFloating['Pmt Begin'].isin([x])]
-    discount_now = df.iloc[0]['LiborDiscount']
-    yf = df.iloc[0]['Period']
-    forward = ((discount_before/discount_now) - 1) * (1.0/yf)
-    return forward
 
 def getOISAdjustedForward(x):
     df = dfFloating[dfFloating['Pmt End'].isin([x])]
@@ -201,19 +184,67 @@ def print_full(x):
     pd.set_option('display.max_rows', len(x))
     print(x)
     pd.reset_option('display.max_rows')
+def buildFloatingLeg():
+    def getForward(x):
+        df = dfFloating[dfFloating['Pmt End'].isin([x])]
+        discount_before = df.iloc[0]['LiborDiscount']
+        df = dfFloating[dfFloating['Pmt Begin'].isin([x])]
+        discount_now = df.iloc[0]['LiborDiscount']
+        yf = df.iloc[0]['Period']
+        forward = ((discount_before / discount_now) - 1) * (1.0 / yf)
+        return forward
 
-dfFloating = pd.DataFrame(index=range(len(pmtDates)-1))
-dfFloating['Pmt Begin'] = pmtBegin
-dfFloating['Pmt End'] = pmtEnd
-dfFloating['Period'] = [floatingLegDayCount.yearFraction(x,y) for x, y in zip(pmtBegin, pmtEnd)]
-dfFloating['ZeroRates'] = [liborInterpolator(x.serialNumber()) if x >= today else 0 for x in pmtEnd ]
-dfFloating['LiborDiscount'] = [exp(liborInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd ]
-dfFloating['OISDiscount'] = [exp(oisInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd ]
-dfFloating['Forward'] = [getFixing(x) if x < today else getForward(x) for x in pmtBegin]
-dfFloating['OISForward'] = [getFixing(x) if x < today else getOISAdjustedForward(x) for x in pmtBegin]
-dfFloating['Proj Pmt'] = notional * dfFloating['Forward'] * dfFloating['Period']
-dfFloating['PV Disc'] = dfFloating['Proj Pmt'] * dfFloating['LiborDiscount']
-MVFloating = dfFloating['PV Disc'].sum(axis=0)
+    def getFixing(x):
+        fixingDate = calendar.advance(x, Period(-2, Days), ModifiedFollowing).serialNumber()
+        index = [i for i, v in enumerate(liborFixings) if v[0] == fixingDate]
+        return liborFixings[index[0]][1]
+    pmtDates = []
+    for d in floatSchedule:
+        pmtDates.append(d)
+    pmtBegin = pmtDates[0:len(pmtDates)-1]
+    pmtEnd = pmtDates[1:len(pmtDates)]
+    dfFloating = pd.DataFrame(index=range(len(pmtDates)-1))
+    dfFloating['Pmt Begin'] = pmtBegin
+    dfFloating['Pmt End'] = pmtEnd
+    dfFloating['Period'] = [floatingLegDayCount.yearFraction(x,y) for x, y in zip(pmtBegin, pmtEnd)]
+    #dfFloating['ZeroRates'] = [liborInterpolator(x.serialNumber()) if x >= today else 0 for x in pmtEnd ]
+    dfFloating['LiborDiscount'] = [exp(liborInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd ]
+    dfFloating['OISDiscount'] = [exp(oisInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd ]
+    dfFloating['Forward'] = [getFixing(x) if x < today else getForward(x) for x in pmtBegin]
+    #dfFloating['OISForward'] = [getFixing(x) if x < today else getOISAdjustedForward(x) for x in pmtBegin]
+    dfFloating['Floating Proj Pmt'] = notional * dfFloating['Forward'] * dfFloating['Period']
+    dfFloating['Floating PV Disc'] = dfFloating['Floating Proj Pmt'] * dfFloating['OISDiscount']
+    #MVFloating = dfFloating['Floating PV Disc'].sum(axis=0)
+    return dfFloating
+
+def buildFixedLeg():
+    pmtDates = []
+    for d in fixedSchedule:
+        pmtDates.append(d)
+    pmtBegin = pmtDates[0:len(pmtDates) - 1]
+    pmtEnd = pmtDates[1:len(pmtDates)]
+    dfFixed = pd.DataFrame(index=range(len(pmtDates) - 1))
+    dfFixed['Pmt Begin'] = pmtBegin
+    dfFixed['Pmt End'] = pmtEnd
+    dfFixed['Period'] = [fixedLegDayCount.yearFraction(x, y) for x, y in zip(pmtBegin, pmtEnd)]
+    dfFixed['LiborDiscount'] = [exp(liborInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd]
+    dfFixed['OISDiscount'] = [exp(oisInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd]
+    dfFixed['Fixed Proj Pmt'] = notional * fixedRate * dfFixed['Period']
+    dfFixed['Fixed PV Disc'] = dfFixed['Fixed Proj Pmt'] * dfFixed['OISDiscount']
+    #MVFixed = dfFixed['Fixed PV Disc'].sum(axis=0)
+    return dfFixed
+
+dfFloating = buildFloatingLeg()
+dfFixed = buildFixedLeg()
+dfFloating['Pmt Begin'] = dfFloating['Pmt Begin'].apply(lambda x: date(x.year(), x.month(), x.dayOfMonth()))
+dfFloating['Pmt End'] = dfFloating['Pmt End'].apply(lambda x: date(x.year(), x.month(), x.dayOfMonth()))
+dfFixed['Pmt Begin'] = dfFixed['Pmt Begin'].apply(lambda x: date(x.year(), x.month(), x.dayOfMonth()))
+dfFixed['Pmt End'] = dfFixed['Pmt End'].apply(lambda x: date(x.year(), x.month(), x.dayOfMonth()))
+
+writer = pd.ExcelWriter('frame.xls')
+dfFloating.to_excel(writer, 'Sheet1')
+dfFixed.to_excel(writer, 'Sheet2')
+writer.save()
 
 for i, cf in enumerate(swap.leg(0)):
     print '%-10s %2d  %-18s   %10.2f' % ('Fixed', i+1, cf.date(), cf.amount())
