@@ -10,9 +10,13 @@ calendar.addHoliday(Date(5,6,2012)) # Add Queens Jubilee Holiday
 settlementDate = Date(6, May, 2014)
 today = Date(15, April, 2016)
 Settings.instance().evaluationDate = today
+maturityDate = Date(6, 5, 2034)
+notional = 1650000.0
+fixedRate = 0.03310500
+fixedLegDayCount = Thirty360()
+floatingLegDayCount = Actual360()
 
-liborCurveDates = [today,
-                   Date(16, 4, 2016),
+liborCurveDates = [Date(16, 4, 2016),
                    Date(18, 4, 2016),
                    Date(19, 4, 2016),
                    Date(26, 4, 2016),
@@ -41,7 +45,38 @@ liborCurveDates = [today,
                    Date(19, 4, 2056),
                    Date(19, 4, 2066),
                    Date(20, 4, 2076) ]
-
+liborZeroRates = [0.0038097,
+                  0.0038088,
+                  0.0038088,
+                  0.0039412,
+                  0.0062247,
+                  0.0063501,
+                  0.0068152,
+                  0.007195,
+                  0.0074916,
+                  0.0077988,
+                  0.0080705,
+                  0.0083555,
+                  0.0086404,
+                  0.0094206,
+                  0.0104417,
+                  0.0114788,
+                  0.0125598,
+                  0.013539,
+                  0.0144499,
+                  0.0152657,
+                  0.0159983,
+                  0.0173084,
+                  0.0187003,
+                  0.020124,
+                  0.020792,
+                  0.0211892,
+                  0.0212766,
+                  0.021006,
+                  0.0208285]
+calcYF = [floatingLegDayCount.yearFraction(today, x) for x in liborCurveDates]
+calcDF = [1./(1. + (r * yf)) for r, yf in zip(liborZeroRates, calcYF)]
+print calcDF
 liborDiscFactors = [1.0,
                     0.999989,
                     0.999968,
@@ -73,36 +108,7 @@ liborDiscFactors = [1.0,
                     0.345407,
                     0.282258]
 
-liborZeroRates = [  0.0, 0.0038097,
-                    0.0038088,
-                    0.0038088,
-                    0.0039412,
-                    0.0062247,
-                    0.0063501,
-                    0.0068152,
-                    0.007195,
-                    0.0074916,
-                    0.0077988,
-                    0.0080705,
-                    0.0083555,
-                    0.0086404,
-                    0.0094206,
-                    0.0104417,
-                    0.0114788,
-                    0.0125598,
-                    0.013539,
-                    0.0144499,
-                    0.0152657,
-                    0.0159983,
-                    0.0173084,
-                    0.0187003,
-                    0.020124,
-                    0.020792,
-                    0.0211892,
-                    0.0212766,
-                    0.021006,
-                    0.0208285
-                    ]
+
 
 oisCurveDates = [today, Date(19, 4, 2016), Date(19, 5, 2016), Date(20, 6, 2016), Date(19, 7, 2016), Date(19, 8, 2016), Date(19, 9, 2016),
                  Date(19, 10, 2016), Date(19, 1, 2017), Date(19, 4, 2017),
@@ -114,14 +120,22 @@ oisDiscFactors = [1.0, 0.99995805,0.99963983,0.9992989,0.99899593,0.99855369,0.9
                     0.99650212,0.99511013,0.98871444,0.97989867,0.96970703,0.95767071,0.92849575,
                     0.8785243,0.84585957,0.791129,0.71144439,0.64560551,0.58139812,0.48863201,0.41385967]
 
+liborFixings = []
+liborFixings.append((Date(4, 8, 2014).serialNumber(), 0.0023710))
+liborFixings.append((Date(1, 5, 2014).serialNumber(), 0.0022285))
+liborFixings.append((Date(4, 11, 2014).serialNumber(), 0.0023185))
+liborFixings.append((Date(4, 2, 2015).serialNumber(), 0.0025510))
+liborFixings.append((Date(1, 5, 2015).serialNumber(), 0.0027975))
+liborFixings.append((Date(4, 8, 2015).serialNumber(), 0.0030110))
+liborFixings.append((Date(4, 11, 2015).serialNumber(), 0.0033660))
+liborFixings.append((Date(4, 2, 2016).serialNumber(), 0.0062020))
+liborFixings.sort(key=lambda tup: tup[0])
+
 liborInterpolator = interpolate.interp1d([float(x.serialNumber()) for x in liborCurveDates], [log(x) for x in liborDiscFactors], kind='cubic')
 oisInterpolator = interpolate.interp1d([float(x.serialNumber()) for x in oisCurveDates], [log(x) for x in oisDiscFactors], kind='cubic')
 zeroInterpolator = interpolate.interp1d([float(x.serialNumber()) for x in liborCurveDates], liborZeroRates, kind='cubic')
 
-liborCurve = YieldTermStructureHandle(DiscountCurve(liborCurveDates, liborDiscFactors, Actual360(), calendar ))
-oisCurve = YieldTermStructureHandle(DiscountCurve(oisCurveDates, oisDiscFactors, Actual360(), calendar ))
 
-maturityDate = Date(6, 5, 2034)
 floatSchedule = Schedule (settlementDate, maturityDate,
                               Period(3, Months), calendar,
                               ModifiedFollowing, ModifiedFollowing,
@@ -131,66 +145,32 @@ fixedSchedule = Schedule(settlementDate, maturityDate,
                               ModifiedFollowing, ModifiedFollowing,
                               DateGeneration.Forward, False)
 
-libor3M_index = USDLibor(Period(3, Months), liborCurve)
-libor3M_index.addFixing(Date(1, 5, 2014), 0.0022285)
-libor3M_index.addFixing(Date(4, 8, 2014), 0.0023710)
-libor3M_index.addFixing(Date(4, 11, 2014), 0.0023185)
-libor3M_index.addFixing(Date(4, 2, 2015), 0.0025510)
-libor3M_index.addFixing(Date(1, 5, 2015), 0.0027975)
-libor3M_index.addFixing(Date(4, 8, 2015), 0.0030110)
-libor3M_index.addFixing(Date(4, 11, 2015), 0.0033660)
-libor3M_index.addFixing(Date(4, 2, 2016), 0.0062020)
-
-notional = 1650000.0
-fixedRate = 0.03310500
-fixedLegDayCount = Thirty360()
-floatingLegDayCount = Actual360()
-
-swap = VanillaSwap(VanillaSwap.Receiver, notional, fixedSchedule,
-               fixedRate, fixedLegDayCount, floatSchedule,
-               libor3M_index, 0, floatingLegDayCount )
-swapEngine = DiscountingSwapEngine(oisCurve)
-swap.setPricingEngine(swapEngine)
-
-liborFixings = []
-liborFixings.append((Date(1, 5, 2014).serialNumber(), 0.0022285))
-liborFixings.append((Date(4, 8, 2014).serialNumber(), 0.0023710))
-liborFixings.append((Date(4, 11, 2014).serialNumber(), 0.0023185))
-liborFixings.append((Date(4, 2, 2015).serialNumber(), 0.0025510))
-liborFixings.append((Date(1, 5, 2015).serialNumber(), 0.0027975))
-liborFixings.append((Date(4, 8, 2015).serialNumber(), 0.0030110))
-liborFixings.append((Date(4, 11, 2015).serialNumber(), 0.0033660))
-liborFixings.append((Date(4, 2, 2016).serialNumber(), 0.0062020))
 
 
 
-pmt = []
-for i, cf in enumerate(swap.leg(1)):
-    print '%-10s %2d  %-18s   %10.2f' % ('Floating', i+1, cf.date(), cf.amount())
-    #pmtDates.append(cf.date())
-    pmt.append(cf.amount())
-
-
-def getOISAdjustedForward(x):
-    df = dfFloating[dfFloating['Pmt End'].isin([x])]
-    libor_before = df.iloc[0]['ZeroRates']
-    df = dfFloating[dfFloating['Pmt Begin'] < [x]]
-    sum = 0
-    for index, row in df.iterrows():
-        sum += df['OISDiscount'] * df['Period']
-    one = df['ZeroRates'] * sum
+def getPeriods(beginDates, endDates):
+    period = []
+    counter = 0
+    for x, y in zip(beginDates, endDates):
+        if x <= today <= y:
+            counter = 1
+        elif x < today and y < today:
+            pass
+        elif x > today and y > today:
+            counter += 1
+        period.append(counter)
+    return period
 
 def print_full(x):
     pd.set_option('display.max_rows', len(x))
     print(x)
     pd.reset_option('display.max_rows')
 def buildFloatingLeg():
+
     def getForward(x):
-        df = dfFloating[dfFloating['Pmt End'].isin([x])]
-        discount_before = df.iloc[0]['LiborDiscount']
-        df = dfFloating[dfFloating['Pmt Begin'].isin([x])]
-        discount_now = df.iloc[0]['LiborDiscount']
-        yf = df.iloc[0]['Period']
+        discount_before = dfFloating[dfFloating['Pmt End'] == x].iloc[0]['LiborDiscount']
+        discount_now = dfFloating[dfFloating['Pmt Begin'] == x].iloc[0]['LiborDiscount']
+        yf = dfFloating[dfFloating['Pmt Begin'] == x].iloc[0]['YF']
         forward = ((discount_before / discount_now) - 1) * (1.0 / yf)
         return forward
 
@@ -206,15 +186,13 @@ def buildFloatingLeg():
     dfFloating = pd.DataFrame(index=range(len(pmtDates)-1))
     dfFloating['Pmt Begin'] = pmtBegin
     dfFloating['Pmt End'] = pmtEnd
-    dfFloating['Period'] = [floatingLegDayCount.yearFraction(x,y) for x, y in zip(pmtBegin, pmtEnd)]
-    #dfFloating['ZeroRates'] = [liborInterpolator(x.serialNumber()) if x >= today else 0 for x in pmtEnd ]
+    dfFloating['Period'] = getPeriods(pmtBegin, pmtEnd)
+    dfFloating['YF'] = [floatingLegDayCount.yearFraction(x,y) for x, y in zip(pmtBegin, pmtEnd)]
     dfFloating['LiborDiscount'] = [exp(liborInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd ]
     dfFloating['OISDiscount'] = [exp(oisInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd ]
     dfFloating['Forward'] = [getFixing(x) if x < today else getForward(x) for x in pmtBegin]
-    #dfFloating['OISForward'] = [getFixing(x) if x < today else getOISAdjustedForward(x) for x in pmtBegin]
-    dfFloating['Floating Proj Pmt'] = notional * dfFloating['Forward'] * dfFloating['Period']
+    dfFloating['Floating Proj Pmt'] = notional * dfFloating['Forward'] * dfFloating['YF']
     dfFloating['Floating PV Disc'] = dfFloating['Floating Proj Pmt'] * dfFloating['OISDiscount']
-    #MVFloating = dfFloating['Floating PV Disc'].sum(axis=0)
     return dfFloating
 
 def buildFixedLeg():
@@ -226,37 +204,42 @@ def buildFixedLeg():
     dfFixed = pd.DataFrame(index=range(len(pmtDates) - 1))
     dfFixed['Pmt Begin'] = pmtBegin
     dfFixed['Pmt End'] = pmtEnd
-    dfFixed['Period'] = [fixedLegDayCount.yearFraction(x, y) for x, y in zip(pmtBegin, pmtEnd)]
+    dfFixed['Period'] = getPeriods(pmtBegin, pmtEnd)
+    dfFixed['YF'] = [fixedLegDayCount.yearFraction(x, y) for x, y in zip(pmtBegin, pmtEnd)]
     dfFixed['LiborDiscount'] = [exp(liborInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd]
     dfFixed['OISDiscount'] = [exp(oisInterpolator(x.serialNumber())) if x >= today else 0 for x in pmtEnd]
-    dfFixed['Fixed Proj Pmt'] = notional * fixedRate * dfFixed['Period']
+    dfFixed['Fixed Proj Pmt'] = notional * fixedRate * dfFixed['YF']
+    dfFixed['temp'] = notional * dfFixed['YF'] * dfFixed['OISDiscount']
     dfFixed['Fixed PV Disc'] = dfFixed['Fixed Proj Pmt'] * dfFixed['OISDiscount']
-    #MVFixed = dfFixed['Fixed PV Disc'].sum(axis=0)
     return dfFixed
 
 dfFloating = buildFloatingLeg()
 dfFixed = buildFixedLeg()
+currentFloatingPmtBeginDate = dfFloating[dfFloating['Period'] == 1].iloc[0]['Pmt Begin']
+currentFixedPmtBeginDate = dfFixed[dfFixed['Period'] == 1].iloc[0]['Pmt Begin']
+
+accrualFixed = notional * fixedRate * (today - currentFixedPmtBeginDate)/360.
+accrualFloating = notional * 0.0062020 * (today - currentFloatingPmtBeginDate)/360.
+
+mvFixed = dfFixed['Fixed PV Disc'].sum(axis=0)
+mvFloating = dfFloating['Floating PV Disc'].sum(axis=0)
+npv = mvFixed - mvFloating
+
+beRate = mvFloating/dfFixed['temp'].sum(axis=0)
+
 dfFloating['Pmt Begin'] = dfFloating['Pmt Begin'].apply(lambda x: date(x.year(), x.month(), x.dayOfMonth()))
 dfFloating['Pmt End'] = dfFloating['Pmt End'].apply(lambda x: date(x.year(), x.month(), x.dayOfMonth()))
 dfFixed['Pmt Begin'] = dfFixed['Pmt Begin'].apply(lambda x: date(x.year(), x.month(), x.dayOfMonth()))
 dfFixed['Pmt End'] = dfFixed['Pmt End'].apply(lambda x: date(x.year(), x.month(), x.dayOfMonth()))
 
 writer = pd.ExcelWriter('frame.xls')
-dfFloating.to_excel(writer, 'Sheet1')
-dfFixed.to_excel(writer, 'Sheet2')
+dfFloating.to_excel(writer, 'Floating')
+dfFixed.to_excel(writer, 'Fixed')
 writer.save()
 
-for i, cf in enumerate(swap.leg(0)):
-    print '%-10s %2d  %-18s   %10.2f' % ('Fixed', i+1, cf.date(), cf.amount())
 
 
-print '%-20s: %20.3f' % ('Net Present Value', swap.NPV())
-swap.fairSpread()
-swap.fairRate()
-swap.fixedLegBPS()
-swap.floatingLegBPS()
-accrualFixed = notional * fixedRate * (today - Date(6,11,2015))/360.
-accrualFloating = notional * 0.0062020 * (today - Date(8, 2, 2016))/360.
+
 
 print accrualFixed - accrualFloating #accrued
 principal = swap.NPV() - (accrualFixed - accrualFloating) # clean MV
