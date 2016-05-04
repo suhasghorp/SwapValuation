@@ -4,6 +4,8 @@ import pandas as pd
 from scipy import interpolate
 from datetime import date
 
+from curveinstruments import Depo, Edf
+
 
 calendar = JointCalendar(UnitedStates(UnitedStates.Settlement), UnitedKingdom(UnitedKingdom.Exchange),JoinHolidays)
 calendar.addHoliday(Date(5,6,2012)) # Add Queens Jubilee Holiday
@@ -15,6 +17,14 @@ notional = 1650000.0
 fixedRate = 0.03310500
 fixedLegDayCount = Thirty360()
 floatingLegDayCount = Actual360()
+immdate = IMM().nextDate(today)
+
+depoON = Depo(today, 0.003807, '1D')
+depoTN = Depo(today, 0.003807, '2D')
+depo1W = Depo(today, 0.004015, '1W')
+depo3M = Depo(today, 0.006331, '3M')
+
+edfJUN16 = Edf(today,99.32,'JUN-16')
 
 liborCurveDates = [Date(16, 4, 2016),
                    Date(18, 4, 2016),
@@ -45,35 +55,6 @@ liborCurveDates = [Date(16, 4, 2016),
                    Date(19, 4, 2056),
                    Date(19, 4, 2066),
                    Date(20, 4, 2076) ]
-liborZeroRates = [0.0038097,
-                  0.0038088,
-                  0.0038088,
-                  0.0039412,
-                  0.0062247,
-                  0.0063501,
-                  0.0068152,
-                  0.007195,
-                  0.0074916,
-                  0.0077988,
-                  0.0080705,
-                  0.0083555,
-                  0.0086404,
-                  0.0094206,
-                  0.0104417,
-                  0.0114788,
-                  0.0125598,
-                  0.013539,
-                  0.0144499,
-                  0.0152657,
-                  0.0159983,
-                  0.0173084,
-                  0.0187003,
-                  0.020124,
-                  0.020792,
-                  0.0211892,
-                  0.0212766,
-                  0.021006,
-                  0.0208285]
 calcYF = [floatingLegDayCount.yearFraction(today, x) for x in liborCurveDates]
 calcDF = [1./(1. + (r * yf)) for r, yf in zip(liborZeroRates, calcYF)]
 print calcDF
